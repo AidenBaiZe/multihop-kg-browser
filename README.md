@@ -2,7 +2,9 @@
 
 这是一个面向课程项目的静态网页，选择 **ArangoDB property graph** 管理多跳问答数据，并通过 GitHub Pages 托管前端页面。网页支持多跳过程查询、关键词检索、简单聚类和关系可视化。
 
-仓库建议名：`multihop-kg-browser`
+仓库地址：<https://github.com/AidenBaiZe/multihop-kg-browser>
+
+网页地址：<https://aidenbaize.github.io/multihop-kg-browser/>
 
 ## 目标对应
 
@@ -74,5 +76,5 @@ FOR v, e, p IN 1..3 OUTBOUND 'entities/arangodb' evidence_edges
 仓库包含 `.github/workflows/pages.yml`。推送到 `main` 后，GitHub Actions 会发布静态网页。发布地址通常为：
 
 ```text
-https://AidenBaiZe.github.io/multihop-kg-browser/
+https://aidenbaize.github.io/multihop-kg-browser/
 ```
