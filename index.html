@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="ArangoDB multi-hop knowledge graph browser with search, traversal, clustering, and visualization."
+    />
+    <title>多跳知识图谱浏览器 · ArangoDB</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">ArangoDB Property Graph</p>
+        <h1>多跳知识图谱浏览器</h1>
+      </div>
+      <div class="header-actions">
+        <a class="icon-link" href="https://github.com/AidenBaiZe/multihop-kg-browser" target="_blank" rel="noreferrer">
+          <i data-lucide="github" aria-hidden="true"></i>
+          <span>Repository</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="side-panel" aria-label="查询控制">
+        <section class="panel">
+          <div class="panel-title">
+            <i data-lucide="search" aria-hidden="true"></i>
+            <h2>检索</h2>
+          </div>
+          <label class="field">
+            <span>关键词</span>
+            <input id="search-input" type="search" placeholder="Inception / AQL / birthplace" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>题型</span>
+            <select id="type-filter"></select>
+          </label>
+          <div class="segmented" role="group" aria-label="图视图">
+            <button class="segment is-active" type="button" data-view="question">证据路径</button>
+            <button class="segment" type="button" data-view="neighborhood">邻域</button>
+            <button class="segment" type="button" data-view="all">全图</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <i data-lucide="route" aria-hidden="true"></i>
+            <h2>多跳查询</h2>
+          </div>
+          <label class="field">
+            <span>起点实体</span>
+            <input id="start-node" list="node-options" type="search" autocomplete="off" />
+            <datalist id="node-options"></datalist>
+          </label>
+          <label class="field">
+            <span>最大跳数</span>
+            <input id="depth-range" type="range" min="1" max="3" value="2" />
+          </label>
+          <div class="inline-status">
+            <span id="depth-label">2 hops</span>
+            <span id="path-count">0 paths</span>
+          </div>
+          <button id="run-traversal" class="primary-action" type="button">
+            <i data-lucide="play" aria-hidden="true"></i>
+            <span>运行查询</span>
+          </button>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <i data-lucide="network" aria-hidden="true"></i>
+            <h2>聚类</h2>
+          </div>
+          <label class="field">
+            <span>聚类方式</span>
+            <select id="cluster-mode">
+              <option value="topic">主题字段</option>
+              <option value="component">连通分量</option>
+              <option value="type">节点类型</option>
+            </select>
+          </label>
+          <label class="check-row">
+            <input id="label-toggle" type="checkbox" checked />
+            <span>显示节点标签</span>
+          </label>
+        </section>
+      </aside>
+
+      <section class="graph-column">
+        <section class="metric-grid" aria-label="图谱指标">
+          <div class="metric">
+            <span>节点</span>
+            <strong id="metric-nodes">0</strong>
+          </div>
+          <div class="metric">
+            <span>关系</span>
+            <strong id="metric-edges">0</strong>
+          </div>
+          <div class="metric">
+            <span>问题</span>
+            <strong id="metric-questions">0</strong>
+          </div>
+          <div class="metric">
+            <span>聚类</span>
+            <strong id="metric-clusters">0</strong>
+          </div>
+        </section>
+
+        <section class="graph-panel" aria-label="关系图">
+          <div class="graph-toolbar">
+            <div>
+              <h2 id="graph-title">证据路径</h2>
+              <p id="graph-subtitle">加载图数据中</p>
+            </div>
+            <div class="tool-buttons" role="group" aria-label="图操作">
+              <button id="fit-graph" class="icon-button" type="button" title="适配画布">
+                <i data-lucide="maximize" aria-hidden="true"></i>
+              </button>
+              <button id="pin-selected" class="icon-button" type="button" title="固定选中节点">
+                <i data-lucide="pin" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <svg id="graph" role="img" aria-label="知识图谱可视化"></svg>
+          <div id="tooltip" class="tooltip" hidden></div>
+        </section>
+
+        <section class="bottom-grid">
+          <div class="panel">
+            <div class="panel-title">
+              <i data-lucide="list-tree" aria-hidden="true"></i>
+              <h2>查询样例</h2>
+              <span id="result-count" class="muted-count">0</span>
+            </div>
+            <div id="question-list" class="question-list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">
+              <i data-lucide="bar-chart-3" aria-hidden="true"></i>
+              <h2>聚类分布</h2>
+            </div>
+            <div id="cluster-chart" class="cluster-chart"></div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="detail-panel" aria-label="详情">
+        <section class="panel">
+          <div class="panel-title">
+            <i data-lucide="file-text" aria-hidden="true"></i>
+            <h2>证据详情</h2>
+          </div>
+          <article id="detail-card" class="detail-card"></article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <i data-lucide="git-branch" aria-hidden="true"></i>
+            <h2>路径结果</h2>
+          </div>
+          <div id="path-results" class="path-results"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <i data-lucide="terminal-square" aria-hidden="true"></i>
+            <h2>AQL 示例</h2>
+          </div>
+          <pre><code id="aql-code"></code></pre>
+        </section>
+      </aside>
+    </main>
+
+    <noscript>此网页需要启用 JavaScript 才能渲染图谱。</noscript>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script type="module" src="./assets/app.js"></script>
+  </body>
+</html>
