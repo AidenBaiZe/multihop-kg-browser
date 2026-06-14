@@ -12,6 +12,16 @@ const palette = [
   "#8c6d31"
 ];
 
+const nodeClassColors = {
+  Question: "#007c75",
+  Article: "#3675b6",
+  Sentence: "#d69412",
+  Entity: "#7b4cc2",
+  Answer: "#2b9348"
+};
+
+const articleLikeTypes = new Set(["Work", "Database", "Dataset", "Organization", "University"]);
+
 const state = {
   data: null,
   nodeById: new Map(),
@@ -23,7 +33,7 @@ const state = {
   selectedNodeId: null,
   startNodeId: null,
   depth: 2,
-  clusterMode: "topic",
+  clusterMode: "class",
   showLabels: true,
   traversalPaths: []
 };
@@ -226,13 +236,13 @@ function currentGraph(questions) {
   }
 
   const question = selectedQuestion();
-  return graphFromEdgeIds(new Set(question?.edgeIds ?? []), question?.start);
+  return semanticGraphFromQuestion(question);
 }
 
 function normalizeGraph(nodes, edges) {
   const usableNodeIds = new Set(nodes.map((node) => node.id));
   return {
-    nodes: nodes.map((node) => ({ ...node })),
+    nodes: nodes.map((node) => decorateEntityNode(node)),
     edges: edges
       .filter((edge) => usableNodeIds.has(edge.source) && usableNodeIds.has(edge.target))
       .map((edge) => ({ ...edge }))
@@ -249,8 +259,138 @@ function graphFromEdgeIds(edgeIds, requiredNodeId = null) {
   const nodes = Array.from(nodeIds)
     .map((id) => state.nodeById.get(id))
     .filter(Boolean)
-    .map((node) => ({ ...node }));
+    .map((node) => decorateEntityNode(node));
   return { nodes, edges };
+}
+
+function semanticGraphFromQuestion(question) {
+  if (!question) return { nodes: [], edges: [] };
+
+  const nodes = new Map();
+  const edges = [];
+  const questionId = `question:${question.id}`;
+  const answerId = `answer:${question.id}`;
+
+  nodes.set(questionId, {
+    id: questionId,
+    label: truncateLabel(question.question, 22),
+    fullLabel: question.question,
+    nodeClass: "Question",
+    type: "Question",
+    cluster: question.cluster,
+    description: `Answer: ${question.answer}`,
+    originalQuestionId: question.id
+  });
+
+  nodes.set(answerId, {
+    id: answerId,
+    label: question.answer,
+    fullLabel: question.answer,
+    nodeClass: "Answer",
+    type: "Answer",
+    cluster: question.cluster,
+    description: `Answer node for ${question.id}`,
+    originalId: question.target
+  });
+
+  edges.push({
+    id: `answer:${question.id}`,
+    source: questionId,
+    target: answerId,
+    relation: "answer",
+    weight: 4,
+    semantic: true
+  });
+
+  question.edgeIds.forEach((edgeId, index) => {
+    const edge = state.edgeById.get(edgeId);
+    if (!edge) return;
+
+    const sourceNode = state.nodeById.get(edge.source);
+    const targetNode = state.nodeById.get(edge.target);
+    const articleId = `article:${question.id}:${edge.source}`;
+    const sentenceId = `sentence:${question.id}:${edge.id}`;
+    const targetSemanticId = edge.target === question.target ? answerId : `entity:${question.id}:${edge.target}`;
+
+    if (sourceNode && !nodes.has(articleId)) {
+      nodes.set(articleId, {
+        ...sourceNode,
+        id: articleId,
+        fullLabel: sourceNode.label,
+        nodeClass: "Article",
+        type: "Article",
+        cluster: question.cluster,
+        originalId: sourceNode.id
+      });
+    }
+
+    if (targetNode && targetSemanticId !== answerId && !nodes.has(targetSemanticId)) {
+      nodes.set(targetSemanticId, {
+        ...targetNode,
+        id: targetSemanticId,
+        fullLabel: targetNode.label,
+        nodeClass: "Entity",
+        type: "Entity",
+        cluster: question.cluster,
+        originalId: targetNode.id
+      });
+    }
+
+    nodes.set(sentenceId, {
+      id: sentenceId,
+      label: truncateLabel(edge.evidence, 27),
+      fullLabel: edge.evidence,
+      nodeClass: "Sentence",
+      type: "Sentence",
+      cluster: question.cluster,
+      description: edge.evidence,
+      originalEdgeId: edge.id
+    });
+
+    edges.push({
+      id: `context:${question.id}:${edge.id}`,
+      source: questionId,
+      target: articleId,
+      relation: "context",
+      weight: 2,
+      semantic: true,
+      originalEdgeId: edge.id
+    });
+
+    edges.push({
+      id: `supporting:${question.id}:${edge.id}`,
+      source: questionId,
+      target: sentenceId,
+      relation: "supporting_fact",
+      weight: 2,
+      semantic: true,
+      originalEdgeId: edge.id
+    });
+
+    edges.push({
+      id: `fact:${question.id}:${edge.id}`,
+      source: articleId,
+      target: targetSemanticId,
+      relation: edge.relation,
+      weight: 3,
+      semantic: true,
+      originalEdgeId: edge.id
+    });
+
+    if (index === question.edgeIds.length - 1 && targetSemanticId !== answerId) {
+      edges.push({
+        id: `derived-answer:${question.id}:${edge.id}`,
+        source: targetSemanticId,
+        target: answerId,
+        relation: "answer",
+        weight: 3,
+        semantic: true,
+        originalEdgeId: edge.id
+      });
+    }
+  });
+
+  return { nodes: [...nodes.values()], edges };
 }
 
 function pathNodeIds(edgeIds) {
@@ -266,6 +406,17 @@ function pathNodeIds(edgeIds) {
 
 function selectedQuestion() {
   return state.data.questions.find((question) => question.id === state.selectedQuestionId) ?? null;
+}
+
+function decorateEntityNode(node) {
+  const question = selectedQuestion();
+  const nodeClass = question?.target === node.id ? "Answer" : articleLikeTypes.has(node.type) ? "Article" : "Entity";
+  return {
+    ...node,
+    nodeClass,
+    fullLabel: node.fullLabel ?? node.label,
+    originalId: node.originalId ?? node.id
+  };
 }
 
 function renderMetrics(graph, questions, clusters) {
@@ -397,7 +548,7 @@ function renderPaths() {
 
 function renderClusterChart(clusters) {
   const rows = Array.from(clusters.entries())
-    .map(([key, nodes], index) => ({ key, count: nodes.length, color: palette[index % palette.length] }))
+    .map(([key, nodes], index) => ({ key, count: nodes.length, color: nodeClassColors[key] ?? palette[index % palette.length] }))
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
   const max = Math.max(1, ...rows.map((row) => row.count));
   els.clusterChart.innerHTML = rows
@@ -445,6 +596,7 @@ function renderGraph(graph, clusters) {
   const width = Math.max(320, els.graph.clientWidth || 900);
   const height = Math.max(420, els.graph.clientHeight || 560);
   svg.attr("viewBox", [0, 0, width, height]);
+  seedSemanticPositions(graph, width, height);
 
   if (!graph.nodes.length) {
     svg
@@ -484,14 +636,17 @@ function renderGraph(graph, clusters) {
 
   const clusterIndex = new Map(Array.from(clusters.keys()).map((key, index) => [key, index]));
   const clusterOf = (node) => node.clusterKey ?? node.cluster ?? node.type;
-  const colorFor = (node) => palette[(clusterIndex.get(clusterOf(node)) ?? 0) % palette.length];
+  const colorFor = (node) => nodeClassColors[node.nodeClass] ?? palette[(clusterIndex.get(clusterOf(node)) ?? 0) % palette.length];
   const activeEdgeIds = new Set(selectedQuestion()?.edgeIds ?? []);
+  const isActiveEdge = (edge) => activeEdgeIds.has(edge.id) || activeEdgeIds.has(edge.originalEdgeId) || edge.semantic;
+  const hasSemanticClasses = graph.nodes.some((node) => node.nodeClass);
+  const usesQuestionLayout = graph.nodes.some((node) => node.nodeClass === "Question");
 
   const links = linkLayer
     .selectAll("line")
     .data(graph.edges)
     .join("line")
-    .attr("class", (edge) => `link${activeEdgeIds.has(edge.id) ? " is-active" : ""}`)
+    .attr("class", (edge) => `link${isActiveEdge(edge) ? " is-active" : ""}`)
     .attr("stroke-width", (edge) => 1.2 + edge.weight * 0.4)
     .attr("marker-end", "url(#arrow)");
 
@@ -506,7 +661,7 @@ function renderGraph(graph, clusters) {
     .selectAll("g")
     .data(graph.nodes)
     .join("g")
-    .attr("class", (node) => `node${node.id === state.selectedNodeId ? " is-active" : ""}`)
+    .attr("class", (node) => `node node-${(node.nodeClass ?? "Entity").toLowerCase()}${node.id === state.selectedNodeId ? " is-active" : ""}`)
     .call(
       d3
         .drag()
@@ -521,9 +676,11 @@ function renderGraph(graph, clusters) {
     .attr("fill", colorFor)
     .on("click", (_, node) => {
       state.selectedNodeId = node.id;
-      state.startNodeId = node.id;
-      els.startNode.value = node.label;
-      state.traversalPaths = findPaths(node.id, state.depth);
+      if (node.originalId && state.nodeById.has(node.originalId)) {
+        state.startNodeId = node.originalId;
+        els.startNode.value = labelFor(node.originalId);
+        state.traversalPaths = findPaths(node.originalId, state.depth);
+      }
       render();
     })
     .on("mouseenter", (event, node) => showTooltip(event, node))
@@ -532,8 +689,9 @@ function renderGraph(graph, clusters) {
 
   nodes
     .append("text")
-    .attr("x", 11)
-    .attr("y", 4)
+    .attr("x", 0)
+    .attr("y", (node) => radiusFor(node, graph.edges) + 19)
+    .attr("text-anchor", "middle")
     .style("display", state.showLabels ? null : "none")
     .text((node) => node.label);
 
@@ -544,11 +702,13 @@ function renderGraph(graph, clusters) {
       d3
         .forceLink(graph.edges)
         .id((node) => node.id)
-        .distance((edge) => 80 + Math.max(0, 4 - edge.weight) * 18)
+        .distance((edge) => (usesQuestionLayout ? semanticEdgeDistance(edge) : 80 + Math.max(0, 4 - edge.weight) * 18))
     )
-    .force("charge", d3.forceManyBody().strength(-380))
+    .force("charge", d3.forceManyBody().strength(usesQuestionLayout ? -650 : hasSemanticClasses ? -420 : -380))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius((node) => radiusFor(node, graph.edges) + 18))
+    .force("x", d3.forceX((node) => classAnchor(node, width, height)[0]).strength(usesQuestionLayout ? 0.14 : hasSemanticClasses ? 0.035 : 0.025))
+    .force("y", d3.forceY((node) => classAnchor(node, width, height)[1]).strength(usesQuestionLayout ? 0.14 : hasSemanticClasses ? 0.035 : 0.025))
+    .force("collision", d3.forceCollide().radius((node) => radiusFor(node, graph.edges) + (usesQuestionLayout ? 30 : 18)))
     .on("tick", () => {
       links
         .attr("x1", (edge) => edge.source.x)
@@ -571,6 +731,8 @@ function assignClusters(graph) {
   graph.nodes.forEach((node) => {
     if (state.clusterMode === "component") {
       node.clusterKey = componentMap.get(node.id) ?? "Component 1";
+    } else if (state.clusterMode === "class") {
+      node.clusterKey = node.nodeClass ?? node.type ?? node.cluster;
     } else if (state.clusterMode === "type") {
       node.clusterKey = node.type;
     } else {
@@ -657,6 +819,11 @@ function labelFor(id) {
   return state.nodeById.get(id)?.label ?? id;
 }
 
+function truncateLabel(value, max = 34) {
+  const text = String(value ?? "");
+  return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+}
+
 function typeLabel(type) {
   const labels = {
     all: "All",
@@ -669,8 +836,73 @@ function typeLabel(type) {
 }
 
 function radiusFor(node, edges) {
+  const semanticRadii = {
+    Question: 26,
+    Article: 18,
+    Sentence: 17,
+    Entity: 17,
+    Answer: 19
+  };
+  if (node.nodeClass && semanticRadii[node.nodeClass]) return semanticRadii[node.nodeClass];
   const degree = edges.filter((edge) => edge.source === node.id || edge.target === node.id || edge.source.id === node.id || edge.target.id === node.id).length;
   return Math.min(18, 8 + degree * 1.4);
+}
+
+function seedSemanticPositions(graph, width, height) {
+  if (!graph.nodes.some((node) => node.nodeClass === "Question")) return;
+
+  const placements = {
+    Question: [[0.5, 0.48]],
+    Answer: [[0.22, 0.5]],
+    Article: [
+      [0.53, 0.18],
+      [0.73, 0.3],
+      [0.36, 0.28],
+      [0.67, 0.18]
+    ],
+    Entity: [
+      [0.5, 0.84],
+      [0.32, 0.68],
+      [0.68, 0.78],
+      [0.35, 0.34]
+    ],
+    Sentence: [
+      [0.84, 0.48],
+      [0.74, 0.84],
+      [0.32, 0.3],
+      [0.82, 0.72]
+    ]
+  };
+  const counts = new Map();
+
+  graph.nodes.forEach((node) => {
+    const options = placements[node.nodeClass] ?? [[0.5, 0.5]];
+    const count = counts.get(node.nodeClass) ?? 0;
+    const placement = options[count % options.length];
+    const lap = Math.floor(count / options.length);
+    const jitter = Math.min(width, height) * 0.035 * lap;
+    node.x = placement[0] * width + jitter;
+    node.y = placement[1] * height + jitter;
+    counts.set(node.nodeClass, count + 1);
+  });
+}
+
+function classAnchor(node, width, height) {
+  const anchors = {
+    Question: [width * 0.5, height * 0.5],
+    Article: [width * 0.56, height * 0.28],
+    Sentence: [width * 0.68, height * 0.62],
+    Entity: [width * 0.43, height * 0.72],
+    Answer: [width * 0.28, height * 0.48]
+  };
+  return anchors[node.nodeClass] ?? [width * 0.5, height * 0.5];
+}
+
+function semanticEdgeDistance(edge) {
+  if (edge.relation === "answer") return 210;
+  if (edge.relation === "supporting_fact") return 205;
+  if (edge.relation === "context") return 190;
+  return 185;
 }
 
 function fitGraph() {
@@ -720,8 +952,8 @@ function dragEnded(event, node) {
 function showTooltip(event, node) {
   els.tooltip.hidden = false;
   els.tooltip.innerHTML = `
-    <strong>${escapeHtml(node.label)}</strong><br />
-    ${escapeHtml(node.type)} · ${escapeHtml(node.clusterKey ?? node.cluster)}<br />
+    <strong>${escapeHtml(node.fullLabel ?? node.label)}</strong><br />
+    ${escapeHtml(node.nodeClass ?? node.type)} · ${escapeHtml(node.clusterKey ?? node.cluster)}<br />
     ${escapeHtml(node.description ?? "")}
   `;
   const rect = els.graph.getBoundingClientRect();

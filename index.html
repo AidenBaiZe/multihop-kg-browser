@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750;850&family=JetBrains+Mono:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./assets/styles.css?v=layout-20260614" />
+    <link rel="stylesheet" href="./assets/styles.css?v=node-classes-20260614" />
   </head>
   <body>
     <a class="skip-nav" href="#main-workspace">跳到图谱区域</a>
@@ -84,6 +84,7 @@
           <label class="field">
             <span>聚类方式</span>
             <select id="cluster-mode">
+              <option value="class">语义节点类</option>
               <option value="topic">主题字段</option>
               <option value="component">连通分量</option>
               <option value="type">节点类型</option>
@@ -136,8 +137,9 @@
           <svg id="graph" role="img" aria-label="知识图谱可视化"></svg>
           <div class="graph-legend" aria-label="图例">
             <span><i class="legend-dot question-dot"></i>Question</span>
-            <span><i class="legend-dot article-dot"></i>Entity</span>
-            <span><i class="legend-dot sentence-dot"></i>Evidence</span>
+            <span><i class="legend-dot article-dot"></i>Article</span>
+            <span><i class="legend-dot sentence-dot"></i>Sentence</span>
+            <span><i class="legend-dot entity-dot"></i>Entity</span>
             <span><i class="legend-dot answer-dot"></i>Answer</span>
           </div>
           <div id="tooltip" class="tooltip" hidden></div>
@@ -182,6 +184,6 @@
     <noscript>此网页需要启用 JavaScript 才能渲染图谱。</noscript>
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script type="module" src="./assets/app.js?v=layout-20260614"></script>
+    <script type="module" src="./assets/app.js?v=node-classes-20260614"></script>
   </body>
 </html>

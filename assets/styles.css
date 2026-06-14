@@ -534,6 +534,10 @@ input[type="range"] {
   background: var(--amber);
 }
 
+.entity-dot {
+  background: var(--violet);
+}
+
 .answer-dot {
   background: var(--green);
 }
@@ -550,8 +554,8 @@ input[type="range"] {
 
 .edge-label {
   fill: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 10px;
+  font-weight: 700;
   paint-order: stroke;
   stroke: rgba(255, 255, 255, 0.96);
   stroke-width: 5px;
@@ -569,10 +573,19 @@ input[type="range"] {
   stroke-width: 4px;
 }
 
+.node-question circle {
+  stroke-width: 3px;
+}
+
+.node-sentence circle,
+.node-entity circle {
+  filter: drop-shadow(0 4px 7px rgba(25, 39, 52, 0.1));
+}
+
 .node text {
   fill: var(--ink);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 700;
   paint-order: stroke;
   pointer-events: none;
   stroke: rgba(255, 255, 255, 0.96);
