@@ -7,47 +7,57 @@
       name="description"
       content="ArangoDB multi-hop knowledge graph browser with search, traversal, clustering, and visualization."
     />
-    <title>多跳知识图谱浏览器 · ArangoDB</title>
+    <title>2WikiMultihopQA · 多跳知识图谱</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;650;750;850&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./assets/styles.css" />
   </head>
   <body>
-    <header class="app-header">
-      <div>
-        <p class="eyebrow">ArangoDB Property Graph</p>
-        <h1>多跳知识图谱浏览器</h1>
-      </div>
-      <div class="header-actions">
-        <a class="icon-link" href="https://github.com/AidenBaiZe/multihop-kg-browser" target="_blank" rel="noreferrer">
-          <i data-lucide="github" aria-hidden="true"></i>
-          <span>Repository</span>
-        </a>
-      </div>
-    </header>
+    <a class="skip-nav" href="#main-workspace">跳到图谱区域</a>
 
     <main class="app-shell">
-      <aside class="side-panel" aria-label="查询控制">
-        <section class="panel">
-          <div class="panel-title">
-            <i data-lucide="search" aria-hidden="true"></i>
-            <h2>检索</h2>
+      <aside class="side-panel" aria-label="数据检索与问题列表">
+        <section class="sidebar-brand">
+          <h1>2WikiMultihopQA</h1>
+          <a class="repo-link" href="https://github.com/AidenBaiZe/multihop-kg-browser" target="_blank" rel="noreferrer">
+            <i data-lucide="github" aria-hidden="true"></i>
+            <span>GitHub</span>
+          </a>
+        </section>
+
+        <section class="control-block" aria-label="检索">
+          <label class="field search-field">
+            <span>检索</span>
+            <input id="search-input" type="search" placeholder="question / answer / type / cluster" autocomplete="off" />
+          </label>
+          <div id="type-filter" class="type-filter" role="group" aria-label="题型筛选"></div>
+        </section>
+
+        <section class="metric-grid" aria-label="图谱指标">
+          <div class="metric">
+            <strong id="metric-questions">0</strong>
+            <span>matching questions</span>
           </div>
-          <label class="field">
-            <span>关键词</span>
-            <input id="search-input" type="search" placeholder="Inception / AQL / birthplace" autocomplete="off" />
-          </label>
-          <label class="field">
-            <span>题型</span>
-            <select id="type-filter"></select>
-          </label>
-          <div class="segmented" role="group" aria-label="图视图">
-            <button class="segment is-active" type="button" data-view="question">证据路径</button>
-            <button class="segment" type="button" data-view="neighborhood">邻域</button>
-            <button class="segment" type="button" data-view="all">全图</button>
+          <div class="metric">
+            <strong id="metric-nodes">0</strong>
+            <span>visible nodes</span>
+          </div>
+          <div class="metric">
+            <strong id="metric-edges">0</strong>
+            <span>visible edges</span>
+          </div>
+          <div class="metric">
+            <strong id="metric-clusters">0</strong>
+            <span>clusters</span>
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-title">
+        <section class="control-block traversal-block" aria-label="多跳查询">
+          <div class="compact-title">
             <i data-lucide="route" aria-hidden="true"></i>
             <h2>多跳查询</h2>
           </div>
@@ -60,7 +70,7 @@
             <span>最大跳数</span>
             <input id="depth-range" type="range" min="1" max="3" value="2" />
           </label>
-          <div class="inline-status">
+          <div class="inline-status" aria-live="polite">
             <span id="depth-label">2 hops</span>
             <span id="path-count">0 paths</span>
           </div>
@@ -70,11 +80,7 @@
           </button>
         </section>
 
-        <section class="panel">
-          <div class="panel-title">
-            <i data-lucide="network" aria-hidden="true"></i>
-            <h2>聚类</h2>
-          </div>
+        <section class="control-block cluster-control" aria-label="聚类控制">
           <label class="field">
             <span>聚类方式</span>
             <select id="cluster-mode">
@@ -88,27 +94,29 @@
             <span>显示节点标签</span>
           </label>
         </section>
+
+        <section class="question-block" aria-label="查询样例">
+          <div class="question-block-head">
+            <h2>查询样例</h2>
+            <span id="result-count" class="muted-count">0</span>
+          </div>
+          <div id="question-list" class="question-list"></div>
+        </section>
       </aside>
 
-      <section class="graph-column">
-        <section class="metric-grid" aria-label="图谱指标">
-          <div class="metric">
-            <span>节点</span>
-            <strong id="metric-nodes">0</strong>
+      <section id="main-workspace" class="workspace" aria-label="图谱工作区">
+        <header class="workspace-header">
+          <div class="question-heading">
+            <p class="eyebrow">ArangoDB property graph</p>
+            <h2 id="hero-question">加载问题中</h2>
+            <p id="hero-meta">Answer: - | Type: - | Cluster: -</p>
           </div>
-          <div class="metric">
-            <span>关系</span>
-            <strong id="metric-edges">0</strong>
+          <div class="workspace-tabs segmented" role="group" aria-label="图视图">
+            <button class="segment is-active" type="button" data-view="question">Graph</button>
+            <button class="segment" type="button" data-view="neighborhood">Evidence</button>
+            <button class="segment" type="button" data-view="all">Clusters</button>
           </div>
-          <div class="metric">
-            <span>问题</span>
-            <strong id="metric-questions">0</strong>
-          </div>
-          <div class="metric">
-            <span>聚类</span>
-            <strong id="metric-clusters">0</strong>
-          </div>
-        </section>
+        </header>
 
         <section class="graph-panel" aria-label="关系图">
           <div class="graph-toolbar">
@@ -117,62 +125,58 @@
               <p id="graph-subtitle">加载图数据中</p>
             </div>
             <div class="tool-buttons" role="group" aria-label="图操作">
-              <button id="fit-graph" class="icon-button" type="button" title="适配画布">
+              <button id="fit-graph" class="icon-button" type="button" title="适配画布" aria-label="适配画布">
                 <i data-lucide="maximize" aria-hidden="true"></i>
               </button>
-              <button id="pin-selected" class="icon-button" type="button" title="固定选中节点">
+              <button id="pin-selected" class="icon-button" type="button" title="固定选中节点" aria-label="固定选中节点">
                 <i data-lucide="pin" aria-hidden="true"></i>
               </button>
             </div>
           </div>
           <svg id="graph" role="img" aria-label="知识图谱可视化"></svg>
+          <div class="graph-legend" aria-label="图例">
+            <span><i class="legend-dot question-dot"></i>Question</span>
+            <span><i class="legend-dot article-dot"></i>Entity</span>
+            <span><i class="legend-dot sentence-dot"></i>Evidence</span>
+            <span><i class="legend-dot answer-dot"></i>Answer</span>
+          </div>
           <div id="tooltip" class="tooltip" hidden></div>
         </section>
 
-        <section class="bottom-grid">
-          <div class="panel">
+        <section class="insight-grid" aria-label="证据和聚类详情">
+          <section class="panel evidence-panel">
             <div class="panel-title">
-              <i data-lucide="list-tree" aria-hidden="true"></i>
-              <h2>查询样例</h2>
-              <span id="result-count" class="muted-count">0</span>
+              <i data-lucide="file-text" aria-hidden="true"></i>
+              <h2>证据详情</h2>
             </div>
-            <div id="question-list" class="question-list"></div>
-          </div>
-          <div class="panel">
+            <article id="detail-card" class="detail-card"></article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <i data-lucide="git-branch" aria-hidden="true"></i>
+              <h2>路径结果</h2>
+            </div>
+            <div id="path-results" class="path-results"></div>
+          </section>
+
+          <section class="panel">
             <div class="panel-title">
               <i data-lucide="bar-chart-3" aria-hidden="true"></i>
               <h2>聚类分布</h2>
             </div>
             <div id="cluster-chart" class="cluster-chart"></div>
-          </div>
+          </section>
+
+          <section class="panel code-panel">
+            <div class="panel-title">
+              <i data-lucide="terminal-square" aria-hidden="true"></i>
+              <h2>AQL 示例</h2>
+            </div>
+            <pre><code id="aql-code"></code></pre>
+          </section>
         </section>
       </section>
-
-      <aside class="detail-panel" aria-label="详情">
-        <section class="panel">
-          <div class="panel-title">
-            <i data-lucide="file-text" aria-hidden="true"></i>
-            <h2>证据详情</h2>
-          </div>
-          <article id="detail-card" class="detail-card"></article>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">
-            <i data-lucide="git-branch" aria-hidden="true"></i>
-            <h2>路径结果</h2>
-          </div>
-          <div id="path-results" class="path-results"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">
-            <i data-lucide="terminal-square" aria-hidden="true"></i>
-            <h2>AQL 示例</h2>
-          </div>
-          <pre><code id="aql-code"></code></pre>
-        </section>
-      </aside>
     </main>
 
     <noscript>此网页需要启用 JavaScript 才能渲染图谱。</noscript>

@@ -1,15 +1,15 @@
 const graphFile = "./data/graph.json";
 
 const palette = [
-  "#1f6feb",
-  "#00897b",
-  "#c27a00",
-  "#c73e1d",
-  "#7b4ab8",
-  "#2e7d32",
-  "#546e7a",
-  "#ad1457",
-  "#6d4c41"
+  "#007c75",
+  "#3675b6",
+  "#d69412",
+  "#7b4cc2",
+  "#2b9348",
+  "#647083",
+  "#0f9a8c",
+  "#b74f6f",
+  "#8c6d31"
 ];
 
 const state = {
@@ -58,6 +58,9 @@ const els = {
   tooltip: document.querySelector("#tooltip")
 };
 
+els.heroQuestion = document.querySelector("#hero-question");
+els.heroMeta = document.querySelector("#hero-meta");
+
 let simulation = null;
 let graphGroup = null;
 let zoomBehavior = null;
@@ -85,7 +88,11 @@ async function init() {
 function hydrateControls() {
   const types = ["all", ...new Set(state.data.questions.map((item) => item.type))];
   els.typeFilter.innerHTML = types
-    .map((type) => `<option value="${type}">${type === "all" ? "全部" : type}</option>`)
+    .map((type) => {
+      const active = type === state.type ? " is-active" : "";
+      const label = type === "all" ? "All" : typeLabel(type);
+      return `<button class="filter-chip${active}" type="button" data-type="${type}" aria-pressed="${type === state.type ? "true" : "false"}">${escapeHtml(label)}</button>`;
+    })
     .join("");
 
   els.nodeOptions.innerHTML = state.data.nodes
@@ -95,6 +102,7 @@ function hydrateControls() {
   const start = state.nodeById.get(state.startNodeId);
   els.startNode.value = start?.label ?? "";
   els.depthLabel.textContent = `${state.depth} hops`;
+  els.segments.forEach((item) => item.setAttribute("aria-pressed", item.dataset.view === state.view ? "true" : "false"));
 }
 
 function bindEvents() {
@@ -103,8 +111,15 @@ function bindEvents() {
     render();
   });
 
-  els.typeFilter.addEventListener("change", (event) => {
-    state.type = event.target.value;
+  els.typeFilter.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-type]");
+    if (!button) return;
+    state.type = button.dataset.type;
+    els.typeFilter.querySelectorAll("[data-type]").forEach((item) => {
+      const active = item === button;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-pressed", active ? "true" : "false");
+    });
     render();
   });
 
@@ -113,6 +128,7 @@ function bindEvents() {
       state.view = button.dataset.view;
       state.traversalPaths = [];
       els.segments.forEach((item) => item.classList.toggle("is-active", item === button));
+      els.segments.forEach((item) => item.setAttribute("aria-pressed", item === button ? "true" : "false"));
       render();
     });
   });
@@ -134,6 +150,7 @@ function bindEvents() {
     state.view = "neighborhood";
     state.traversalPaths = findPaths(resolved.id, state.depth);
     els.segments.forEach((item) => item.classList.toggle("is-active", item.dataset.view === "neighborhood"));
+    els.segments.forEach((item) => item.setAttribute("aria-pressed", item.dataset.view === "neighborhood" ? "true" : "false"));
     render();
   });
 
@@ -258,7 +275,7 @@ function renderMetrics(graph, questions, clusters) {
   els.metricClusters.textContent = clusters.size;
 
   const titles = {
-    question: ["证据路径", "当前问题的 ordered evidence edges"],
+    question: ["证据路径", "当前问题的有序 evidence edges"],
     neighborhood: ["邻域", `${labelFor(state.startNodeId)} 的 ${state.depth} 跳局部图`],
     all: ["全图", "完整样例数据或当前检索结果"]
   };
@@ -300,6 +317,7 @@ function renderQuestions(questions) {
       state.view = "question";
       state.traversalPaths = [];
       els.segments.forEach((item) => item.classList.toggle("is-active", item.dataset.view === "question"));
+      els.segments.forEach((item) => item.setAttribute("aria-pressed", item.dataset.view === "question" ? "true" : "false"));
       render();
     });
   });
@@ -309,7 +327,14 @@ function renderDetail() {
   const question = selectedQuestion();
   if (!question) {
     els.detailCard.innerHTML = `<p class="empty">请选择一个查询样例。</p>`;
+    if (els.heroQuestion) els.heroQuestion.textContent = "请选择一个查询样例";
+    if (els.heroMeta) els.heroMeta.textContent = "Answer: - | Type: - | Cluster: -";
     return;
+  }
+
+  if (els.heroQuestion) els.heroQuestion.textContent = question.question;
+  if (els.heroMeta) {
+    els.heroMeta.textContent = `Answer: ${question.answer} | Type: ${typeLabel(question.type)} | Cluster: ${question.cluster}`;
   }
 
   const steps = question.edgeIds
@@ -443,7 +468,7 @@ function renderGraph(graph, clusters) {
     .attr("markerHeight", 7)
     .attr("orient", "auto")
     .append("path")
-    .attr("fill", "rgba(92, 104, 114, 0.62)")
+    .attr("fill", "#9aabba")
     .attr("d", "M0,-5L10,0L0,5");
 
   zoomBehavior = d3
@@ -630,6 +655,17 @@ function resolveNode(value) {
 
 function labelFor(id) {
   return state.nodeById.get(id)?.label ?? id;
+}
+
+function typeLabel(type) {
+  const labels = {
+    all: "All",
+    bridge: "Bridge",
+    location: "Location",
+    schema: "Schema",
+    dataset: "Dataset"
+  };
+  return labels[type] ?? type;
 }
 
 function radiusFor(node, edges) {
